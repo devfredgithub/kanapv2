@@ -1,76 +1,104 @@
-// récupération du local storage
-// et de l'URL active
-//----------------------------------------------------
-const data = JSON.parse(localStorage.getItem("data"));
-const idList = JSON.parse(localStorage.getItem("idList"));
-const params = new URLSearchParams(location.search); 
-let idUrl = params.get('id');
-let cart = JSON.parse(localStorage.getItem("cart"));
 
-for (let i = 0; i < 8; i++) {
 
-    if (idUrl === idList[i]) {
-        
-        // MANIPULATIONS DU DOM
-        // changement du <title>
-        //----------------------------------------------------
-        let title = document.querySelector("title");
-        title.textContent = data[i].name;
+// Extraire l’URL courante pour récupérer le paramètres (_id) 
+const urlcourante = document.location.href;
+const url = new URL(urlcourante);
+const id = url.searchParams.get("id");
 
-        // image
-        //----------------------------------------------------
-        let img = document.createElement("img");
-        img.setAttribute("src", data[i].imageUrl);
-        img.setAttribute("alt", data[i].altTxt);
-        document.querySelector("article > div").appendChild(img);
+// ceci nous permet de requeter l'api et recuperer differentes info du produit en question
+const productUrl = "http://localhost:3000/api/products/" + id;
 
-        // changement du <h1>
-        //----------------------------------------------------
-        let h1 = document.getElementById("title");
-        h1.textContent = data[i].name;
+fetch(productUrl)
+// récupérer le résultat de la requête au format json
+.then(function(res) {
+    if (res.ok) {
+    return res.json();
+  }
+  
+})
 
-        // changement du prix
-        //----------------------------------------------------
-        let price = document.getElementById("price");
-        price.textContent = data[i].price;
+// ce qui est été traiter en json sera appelé item
 
-        // changement de la description
-        //----------------------------------------------------
-        let productDescription = document.getElementById("description");
-        productDescription.textContent = data[i].description;
+.then(function(item) {
+    afficherProductItems(item);
+})
+ // En cas d'erreur h1 au contenu de erreur 404 et renvoit en console l'erreur.
+ .catch((err) => {
+  document.querySelector(".titles").innerHTML = "<h1>erreur 404</h1>";
+  console.log("erreur 404, sur ressource api:" + err);
+});
 
-        // ajout des options couleur
-        //----------------------------------------------------
-        let colors = data[i].colors;
-        for (color in colors) {
-            
-            let colorChoice = document.createElement("option");
-            colorChoice.setAttribute("value", colors[color]);
-            colorChoice.textContent = colors[color];   
-            document.getElementById("colors").appendChild(colorChoice);
-            
-        }            
-            
-            // ajout du produit au panier
-            //----------------------------------------------------
-            let quantity = document.getElementById("quantity");
-            let addToCart = document.getElementById("addToCart");
-            addToCart.addEventListener("click",() => {
-                
-                let colorSelected = JSON.stringify(document.getElementById("colors").options.selectedIndex);
-                let quantityNumber = Number(quantity.value);
-                let product = [];
-                product.push(idUrl, quantityNumber, colorSelected);
-                cart.push(product);
-                for (j = 0; j < cart.length-1; j++) {
-                    
-                    if (product[0] === cart[j][0] && product[2] === cart[j][2]) {
-                            cart.pop();
-                            cart[j][1] = cart[j][1]+quantityNumber;
-                        }
+function afficherProductItems(item){
 
-                }
-                localStorage.cart = JSON.stringify(cart);
-            });
+    // Créer un élément <img> et ajouter-le au document :
+    let Img = document.createElement("img");
+    // ajouter l'image du produit
+    Img.src=item.imageUrl;
+     // ajouter Img en tant que enfant de l'élément avec la class="item__img":
+    document.querySelector(".item__img").appendChild(Img);
+    
+    //Ajouter le nom du produit
+    document.querySelector("#title").innerHTML= item.name;
+    //Ajouter le prix du produit
+    document.querySelector("#price").innerHTML= item.price;
+    //Ajouter la description du produit
+    document.querySelector("#description").innerHTML= item.description;
+    //Remplir les options du composant select
+    for(let color of item.colors){
+        let option = document.createElement("option");
+        option.innerHTML= color;
+        document.querySelector("#colors").appendChild(option);
     }
 }
+
+
+// selectionner le bouton avec lId addToCart
+let button = document.getElementById("addToCart");
+// au clic sur le bouton:
+button.addEventListener("click",()=>{
+    // newProcuct un objet avec Id, quantity(nbr), color
+    let newProduct = {
+        "id": id,
+        "quantity" : parseInt(document.getElementById("quantity").value, 10) ,
+        "color"  : document.getElementById("colors").value
+    };
+    // recuperer les produits dans le localstoge en json
+    let localStorageProducts= JSON.parse(localStorage.getItem("cart")) ;
+    let prodTrouve = false;
+    let position = 0;
+    
+    // si la quantite ou la color ne sont pas selectionne
+    if( newProduct.quantity === 0 || newProduct.color === ""){
+        // affiche cette alert et ne fait rien d'ou return
+        window.alert("Veuillez sélectionner la color et/ou la quantité")
+        return;
+    }
+     // quand le localstorge contient des produits
+    if(localStorageProducts){
+        // verifier l'id et la color existaient déja dans le localstorage
+        for (let i=0 ;i<localStorageProducts.length;i++){
+            if( newProduct.productId===  localStorageProducts[i].productId &&
+                newProduct.color === localStorageProducts[i].color ) {
+                prodTrouve = true;
+                position = i;
+                break;
+            }
+        }
+            //on va incrémenter la quantité souhaité
+        if( prodTrouve === true){
+            localStorageProducts[position].quantity = localStorageProducts[position].quantity + newProduct.quantity;
+         
+            // sinon on va ajouter une autre ligne localStorageProducts
+        }else{
+            localStorageProducts.push(newProduct);
+        }
+
+        // quand le localstorge est vide
+    } else{
+        localStorageProducts=[];
+        localStorageProducts.push(newProduct);
+    }
+    // stocker products qui contiennent localStorageProducts format string
+    localStorage.setItem("cart", JSON.stringify(localStorageProducts));
+
+})
